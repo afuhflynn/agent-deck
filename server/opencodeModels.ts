@@ -3,12 +3,12 @@
 import { run } from "./lib/exec";
 import type { OpencodeModelInfo } from "../src/data/types";
 
-export const DEFAULT_OPENCODE_LEAD_MODEL = "meta/muse-spark-1.3";
+export const DEFAULT_OPENCODE_LEAD_MODEL = "opencode/nemotron-3.5-super-vl-free";
 
 export const DEFAULT_OPENCODE_SUBAGENT_PRIORITIES = [
-  "meta/muse-spark-1.3-contributor",
   "opencode/nemotron-3.5-super-vl-free",
   "opencode/deepseek-v4.1-flash-free",
+  "meta/muse-spark-1.3-contributor",
 ] as const;
 
 let cachedModels: OpencodeModelInfo[] | null = null;

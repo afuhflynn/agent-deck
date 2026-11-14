@@ -253,7 +253,7 @@ export function opencodeConfig(agent: AgentConfig, cfg: HqConfig, token: string,
         },
       },
     },
-    plugins: ["./" + OPENCODE_PLUGIN],
+    plugins: ["./plugins/hq.mjs"],
     permissions: [
       { action: "mcp:hq:*", resource: "*", effect: "allow" },
     ],

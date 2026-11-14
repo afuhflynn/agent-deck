@@ -84,11 +84,11 @@ export interface OpencodeModelInfo {
   isCheap: boolean;
 }
 
-export const OPENCODE_LEAD_DEFAULT_MODEL = "meta/muse-spark-1.3";
+export const OPENCODE_LEAD_DEFAULT_MODEL = "opencode/nemotron-3.5-super-vl-free";
 export const OPENCODE_SUBAGENT_DEFAULTS = [
-  "meta/muse-spark-1.3-contributor",
   "opencode/nemotron-3.5-super-vl-free",
   "opencode/deepseek-v4.1-flash-free",
+  "meta/muse-spark-1.3-contributor",
 ] as const;
 
 export interface WorkflowConfig {

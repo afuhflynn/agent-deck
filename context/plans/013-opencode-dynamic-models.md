@@ -4,11 +4,11 @@
 Enabled Agent Deck to dynamically inspect and load all truly available models configured in the user's OpenCode environment (providers, OpenCode Go subscription, and OpenCode Zen free pool), provided an interactive grouped model selector for any agent (Lead, Workers, custom agents) in the retro UI, and configured automated subagent model prioritization (`explore`, `summary`, `compaction`) that directs auxiliary tasks to free or contributor models to save primary reasoning tokens.
 
 ### Team decisions implemented
-- **Lead Agent default model**: `meta/muse-spark-1.3` when OpenCode is selected and no model is specified.
+- **Lead Agent default model**: `opencode/nemotron-3.5-super-vl-free` when OpenCode is selected and no model is specified.
 - **Sub-agents priority defaults**:
-  1. `meta/muse-spark-1.3-contributor`
-  2. `opencode/nemotron-3.5-super-vl-free`
-  3. `opencode/deepseek-v4.1-flash-free`
+  1. `opencode/nemotron-3.5-super-vl-free`
+  2. `opencode/deepseek-v4.1-flash-free`
+  3. `meta/muse-spark-1.3-contributor`
   4. Any other free model (`isFree`)
   5. Any ultra-cheap model (`isCheap`)
 - **Interactive UI Model Selector**: Grouped by 🟢 Free, ⚡ Ultra-Cheap, and connected providers (Google, Groq, Meta, Anthropic, OpenAI, etc.), with a live 🔄 Refresh button and custom model entry fallback.
