@@ -7,10 +7,11 @@ import { run } from "./lib/exec";
 import { join } from "node:path";
 import { stackRoleMd } from "../src/data/stack";
 import type { AgentConfig, HqConfig } from "../src/data/types";
+import { DEFAULT_OPENCODE_LEAD_MODEL } from "./opencodeModels";
 
 /** Team MCP config, passed with `claude --mcp-config` (so the project's own .mcp.json is untouched). */
 export const MCP_CONFIG = ".claude/hq-mcp.json";
-export const OPENCODE_CONFIG = ".opencode/config.json";
+export const OPENCODE_CONFIG = ".opencode/opencode.json";
 export const OPENCODE_PLUGIN = ".opencode/plugins/hq.mjs";
 /** Local mode on Windows: hooks run this with node (no sh or curl there). */
 export const HOOK_SCRIPT = ".jsmhq-hook.mjs";
@@ -229,8 +230,14 @@ export function writeClaudeFiles(dir: string, agent: AgentConfig, cfg: HqConfig,
 /** OpenCode config (ambient instructions, remote Team MCP, and local plugin). */
 export function opencodeConfig(agent: AgentConfig, cfg: HqConfig, token: string, subagentModel?: string): string {
   const url = hqUrl(agent, cfg.project.hqPort);
+  const m = agent.model?.trim();
+  let model = !m || /^default$/i.test(m) ? null : m;
+  if (!model && agent.isLead) {
+    model = DEFAULT_OPENCODE_LEAD_MODEL;
+  }
   const config: Record<string, unknown> = {
     $schema: "https://opencode.ai/config.json",
+    ...(model ? { model } : {}),
     instructions: [ROLE_FILE],
     mcp: {
       servers: {
@@ -319,6 +326,7 @@ export function writeOpencodeFiles(dir: string, agent: AgentConfig, cfg: HqConfi
   agentWrite(dir, ROLE_FILE, roleMd(agent, cfg, extras));
   agentWrite(dir, OPENCODE_CONFIG, opencodeConfig(agent, cfg, token, subagentModel), { mode: 0o600 });
   agentWrite(dir, OPENCODE_PLUGIN, opencodePluginSource(url, token, agent.id));
+  agentRemove(dir, ".opencode/config.json");
   excludeFromGit(dir, [ROLE_FILE, ".opencode"]);
 }
 

@@ -5,7 +5,7 @@
 import { agentWrite } from "./lib/agentFs";
 import type { AgentCli, AgentConfig, HqConfig } from "../src/data/types";
 import { adoptRoleFile, excludeFromGit, HOOK_SCRIPT, type RoleExtras, hookCommand, hookScriptFor, hqUrl, MCP_CONFIG, roleMd, writeClaudeFiles, writeHookScript, OPENCODE_CONFIG, writeOpencodeFiles } from "./agentFiles";
-import { DEFAULT_OPENCODE_LEAD_MODEL, getAvailableOpencodeModels, resolveOpencodeSubagentModel } from "./opencodeModels";
+import { getAvailableOpencodeModels, resolveOpencodeSubagentModel } from "./opencodeModels";
 import { run } from "./lib/exec";
 
 export interface Launch {
@@ -91,13 +91,10 @@ const opencode: CliAdapter = {
     const subagentModel = resolveOpencodeSubagentModel(available, cfg.workflow.opencodeSubagentModel);
     writeOpencodeFiles(dir, agent, cfg, token, { ...extras, ownRole }, subagentModel);
   },
-  launch(agent) {
-    const m = agent.model.trim();
-    let model = !m || /^default$/i.test(m) ? null : m;
-    if (!model && agent.isLead) {
-      model = DEFAULT_OPENCODE_LEAD_MODEL;
-    }
-    return { sbxAgent: "opencode", args: model ? ["-m", model] : [] };
+  launch(_agent) {
+    // OpenCode configures the model via .opencode/opencode.json (written in writeFiles);
+    // the interactive CLI takes no -m flag.
+    return { sbxAgent: "opencode", args: [] };
   },
 };
 

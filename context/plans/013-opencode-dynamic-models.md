@@ -21,7 +21,7 @@ Enabled Agent Deck to dynamically inspect and load all truly available models co
    - Robust fallback list in case the OpenCode CLI is temporarily missing or unauthenticated.
 2. **Sub-agent Resolution (`server/opencodeModels.ts`)**:
    - Checks priority order (`meta/muse-spark-1.3-contributor` > `opencode/nemotron-3.5-super-vl-free` > `opencode/deepseek-v4.1-flash-free` > free > cheap).
-   - Generates `.opencode/config.json` with `agents.explore`, `agents.summary`, `agents.compaction` and `small_model` pre-configured.
+   - Generates `.opencode/opencode.json` with primary model, `agents.explore`, `agents.summary`, `agents.compaction` and `small_model` pre-configured.
 3. **HQ Store & Commands (`server/hub.ts`, `server/commands.ts`)**:
    - `OfficeSnapshot` includes `opencodeModels`.
    - `refreshOpencodeModels` command triggers live discovery and emits `opencode.models` event to all connected clients.
