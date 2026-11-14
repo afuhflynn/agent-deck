@@ -26,9 +26,9 @@ export interface SandboxSettings {
 export type AgentMode = "sandbox" | "local";
 
 /** Which coding agent CLI runs in the sandbox. */
-export type AgentCli = "claude" | "codex";
+export type AgentCli = "claude" | "codex" | "opencode";
 
-export const CLI_LABEL: Record<AgentCli, string> = { claude: "Claude Code", codex: "Codex" };
+export const CLI_LABEL: Record<AgentCli, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
 
 export interface AgentConfig {
   id: string; // "john"
@@ -76,10 +76,26 @@ export interface NewMcpServer {
 export type ReviewTool = "coderabbit" | "greptile" | "copilot" | "human" | "custom";
 export type DeployTool = "instacloud" | "vercel" | "custom";
 
+export interface OpencodeModelInfo {
+  id: string;
+  provider: string;
+  name: string;
+  isFree: boolean;
+  isCheap: boolean;
+}
+
+export const OPENCODE_LEAD_DEFAULT_MODEL = "meta/muse-spark-1.3";
+export const OPENCODE_SUBAGENT_DEFAULTS = [
+  "meta/muse-spark-1.3-contributor",
+  "opencode/nemotron-3.5-super-vl-free",
+  "opencode/deepseek-v4.1-flash-free",
+] as const;
+
 export interface WorkflowConfig {
   review: { enabled: boolean; tool: ReviewTool; command: string };
   merge: { by: "human" | "lead" };
   deploy: { enabled: boolean; tool: DeployTool; command: string; perAgentEnvironments: boolean };
+  opencodeSubagentModel?: string | null;
 }
 
 export interface ProjectConfig {
@@ -246,7 +262,7 @@ export interface RemoveAgentOptions {
 
 // ---------------------------------------------------------------- Setup
 
-export type SetupCheckId = "os" | "sbx" | "sbx-login" | "sbx-policy" | "tmux" | "gh" | "gh-remote" | "github-secret" | "claude" | "codex" | "openai-secret";
+export type SetupCheckId = "os" | "sbx" | "sbx-login" | "sbx-policy" | "tmux" | "gh" | "gh-remote" | "github-secret" | "claude" | "codex" | "opencode" | "openai-secret";
 export type SetupStatus = "ok" | "missing" | "unsupported" | "warning";
 
 export interface SetupFix {
@@ -343,6 +359,7 @@ export interface OfficeSnapshot {
   accessRequests?: AccessRequest[];
   mcp?: McpState;
   actionItems?: ActionItem[];
+  opencodeModels?: OpencodeModelInfo[];
 }
 
 /** Something an agent needs the user to do outside its sandbox (Team MCP `ask_user`). */
@@ -388,4 +405,5 @@ export interface WorkflowPatch {
   review?: Partial<WorkflowConfig["review"]>;
   merge?: Partial<WorkflowConfig["merge"]>;
   deploy?: Partial<WorkflowConfig["deploy"]>;
+  opencodeSubagentModel?: string | null;
 }

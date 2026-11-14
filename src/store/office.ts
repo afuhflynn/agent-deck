@@ -118,6 +118,8 @@ function reduce(snap: OfficeSnapshot, e: OfficeEvent): OfficeSnapshot {
       return { ...snap, mcp: e.mcp };
     case "access.updated":
       return { ...snap, accessRequests: upsert(snap.accessRequests ?? [], e.request, (r) => r.id === e.request.id) };
+    case "opencode.models":
+      return { ...snap, opencodeModels: e.models };
   }
 }
 
@@ -172,6 +174,7 @@ export const officeActions = {
   unforwardPort: (agentId: string, port: number) => source.unforwardPort(agentId, port),
   recheckSetup: () => source.recheckSetup(),
   runSetupFix: (id: SetupCheckId) => source.runSetupFix(id),
+  refreshOpencodeModels: () => source.refreshOpencodeModels(),
   assignTask: (taskId: string, agentId: string) => source.assignTask(taskId, agentId),
   sendMessage: (toId: string, text: string) => source.sendMessage(toId, text),
   addAgent: source.addAgent.bind(source),

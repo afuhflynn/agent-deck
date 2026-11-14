@@ -180,6 +180,13 @@ async function checkCodex(): Promise<Check> {
   return { ...base, status: "missing", detail: "Not installed. Only needed for Codex agents in Local mode (sandboxes have it).", fix: fix("npm install -g @openai/codex", false, "https://developers.openai.com/codex/cli") };
 }
 
+async function checkOpencode(): Promise<Check> {
+  const base = { id: "opencode" as const, label: "OpenCode (for OpenCode agents in Local mode)", neededFor: "local" as const };
+  const v = await run("opencode", ["--version"], { timeoutMs: 8000 });
+  if (v.ok) return { ...base, status: "ok", detail: v.stdout.trim(), fix: null };
+  return { ...base, status: "missing", detail: "Not installed. Only needed for OpenCode agents in Local mode (sandboxes have it).", fix: fix("curl -fsSL https://opencode.ai/v2/install | bash", false, "https://opencode.ai/docs") };
+}
+
 async function checkOpenAiSecret(sbxOk: boolean): Promise<Check> {
   const base = { id: "openai-secret" as const, label: "OpenAI sign-in for Codex agents", neededFor: "sandbox" as const };
   if (!sbxOk) return { ...base, status: "missing", detail: "Waiting for sbx.", fix: null };
@@ -205,6 +212,8 @@ export async function runSetupChecks(repo: RepoInfo, team: AgentConfig[] = []): 
   const codexAgents = team.filter((a) => a.cli === "codex");
   if (codexAgents.some((a) => a.mode === "sandbox")) checks.splice(5, 0, await checkOpenAiSecret(sbxOk));
   if (codexAgents.some((a) => a.mode === "local")) checks.push(await checkCodex());
+  const opencodeAgents = team.filter((a) => a.cli === "opencode");
+  if (opencodeAgents.some((a) => a.mode === "local")) checks.push(await checkOpencode());
   const ok = (c: SetupCheck) => c.status === "ok";
   return {
     machine: { cpus: cpus().length, memoryGb: Math.round(totalmem() / 1024 ** 3), persistentAgents: usesTmux() },

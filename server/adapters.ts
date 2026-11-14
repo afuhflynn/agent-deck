@@ -4,7 +4,8 @@
 
 import { agentWrite } from "./lib/agentFs";
 import type { AgentCli, AgentConfig, HqConfig } from "../src/data/types";
-import { adoptRoleFile, excludeFromGit, HOOK_SCRIPT, type RoleExtras, hookCommand, hookScriptFor, hqUrl, MCP_CONFIG, roleMd, writeClaudeFiles, writeHookScript } from "./agentFiles";
+import { adoptRoleFile, excludeFromGit, HOOK_SCRIPT, type RoleExtras, hookCommand, hookScriptFor, hqUrl, MCP_CONFIG, roleMd, writeClaudeFiles, writeHookScript, OPENCODE_CONFIG, writeOpencodeFiles } from "./agentFiles";
+import { DEFAULT_OPENCODE_LEAD_MODEL, getAvailableOpencodeModels, resolveOpencodeSubagentModel } from "./opencodeModels";
 import { run } from "./lib/exec";
 
 export interface Launch {
@@ -79,7 +80,28 @@ const codex: CliAdapter = {
   },
 };
 
-export const adapters: Record<AgentCli, CliAdapter> = { claude, codex };
+// ---------------------------------------------------------------- OpenCode
+
+const opencode: CliAdapter = {
+  async writeFiles(dir, agent, cfg, token, extras = {}) {
+    const tracked = await run("git", ["ls-files", "--error-unmatch", OPENCODE_CONFIG], { cwd: dir });
+    if (tracked.ok) throw new Error(`This repo commits ${OPENCODE_CONFIG}, so HQ can't add its OpenCode settings without changing a tracked file. Use Claude Code for this agent, or remove that file from the repo.`);
+    const ownRole = await adoptRoleFile(dir);
+    const available = await getAvailableOpencodeModels();
+    const subagentModel = resolveOpencodeSubagentModel(available, cfg.workflow.opencodeSubagentModel);
+    writeOpencodeFiles(dir, agent, cfg, token, { ...extras, ownRole }, subagentModel);
+  },
+  launch(agent) {
+    const m = agent.model.trim();
+    let model = !m || /^default$/i.test(m) ? null : m;
+    if (!model && agent.isLead) {
+      model = DEFAULT_OPENCODE_LEAD_MODEL;
+    }
+    return { sbxAgent: "opencode", args: model ? ["-m", model] : [] };
+  },
+};
+
+export const adapters: Record<AgentCli, CliAdapter> = { claude, codex, opencode };
 
 /** The command a Local-mode agent runs on the host. */
-export const localBinary: Record<AgentCli, string> = { claude: "claude", codex: "codex" };
+export const localBinary: Record<AgentCli, string> = { claude: "claude", codex: "codex", opencode: "opencode" };

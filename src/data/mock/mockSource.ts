@@ -194,6 +194,20 @@ export function createMockSource(): OfficeDataSource {
       world.emit({ type: "setup.updated", setup: world.snap.setup });
     },
 
+    refreshOpencodeModels() {
+      const models = [
+        { id: "meta/muse-spark-1.3", provider: "meta", name: "muse-spark-1.3", isFree: false, isCheap: true },
+        { id: "meta/muse-spark-1.3-contributor", provider: "meta", name: "muse-spark-1.3-contributor", isFree: false, isCheap: true },
+        { id: "opencode/nemotron-3.5-super-vl-free", provider: "opencode", name: "nemotron-3.5-super-vl-free", isFree: true, isCheap: true },
+        { id: "opencode/deepseek-v4.1-flash-free", provider: "opencode", name: "deepseek-v4.1-flash-free", isFree: true, isCheap: true },
+        { id: "opencode/glm-5.3-flash-free", provider: "opencode", name: "glm-5.3-flash-free", isFree: true, isCheap: true },
+        { id: "google/gemini-2.5-flash", provider: "google", name: "gemini-2.5-flash", isFree: false, isCheap: true },
+        { id: "google/gemini-2.5-pro", provider: "google", name: "gemini-2.5-pro", isFree: false, isCheap: false },
+      ];
+      world.snap.opencodeModels = models;
+      world.emit({ type: "opencode.models", models });
+    },
+
     runSetupFix() {
       // Everything is installed in the mock.
     },

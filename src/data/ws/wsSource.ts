@@ -73,6 +73,7 @@ export function createWsSource(token: string): OfficeDataSource {
     recreateSandbox: (id) => send("recreateSandbox", id),
     recheckSetup: () => send("recheckSetup"),
     runSetupFix: (id) => send("runSetupFix", id),
+    refreshOpencodeModels: () => send("refreshOpencodeModels"),
     addAgent: (input) => send("addAgent", input),
     updateAgent: (id, patch) => send("updateAgent", id, patch),
     removeAgent: (id, opts) => send("removeAgent", id, opts),

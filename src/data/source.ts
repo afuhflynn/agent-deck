@@ -14,6 +14,7 @@ import type {
   HqConfig,
   NewAgentInput,
   OfficeSnapshot,
+  OpencodeModelInfo,
   SbxState,
   RemoveAgentOptions,
   SetupCheckId,
@@ -46,7 +47,8 @@ export type OfficeEvent =
   | { type: "terminal.output"; agentId: string; data: string }
   | { type: "access.updated"; request: AccessRequest }
   | { type: "mcp.updated"; mcp: McpState }
-  | { type: "action.updated"; item: ActionItem };
+  | { type: "action.updated"; item: ActionItem }
+  | { type: "opencode.models"; models: OpencodeModelInfo[] };
 
 export type SimSpeed = 1 | 2 | 4;
 
@@ -95,6 +97,8 @@ export interface OfficeDataSource {
   recheckSetup(): void;
   /** Runs a check's fix command in a visible terminal (output on terminal id `setup:<checkId>`). */
   runSetupFix(id: SetupCheckId): void;
+  /** Re-reads available OpenCode models from host/sandbox. */
+  refreshOpencodeModels(): void;
 
   addAgent(input: NewAgentInput): void;
   updateAgent(id: string, patch: AgentPatch): void;

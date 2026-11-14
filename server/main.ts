@@ -24,6 +24,7 @@ import { detectRepo } from "./repo";
 import { Sessions } from "./sessions";
 import { runSetupChecks } from "./setup";
 import { loadConfig, loadPlan } from "./store";
+import { getAvailableOpencodeModels } from "./opencodeModels";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -49,6 +50,9 @@ async function main() {
 
   const hub = new Hub(repo, slug, config, loadPlan(repo.root), setup);
   hub.snap.welcome = isNew;
+  void getAvailableOpencodeModels().then((models) => {
+    hub.setOpencodeModels(models);
+  });
   const sessions = new Sessions(hub, token);
   const inbox = new Inbox(hub, { type: (id, text) => sessions.typeInto(id, text), enter: (id) => sessions.pressEnter(id) });
   sessions.onSessionDown = (id) => inbox.sessionDown(id);

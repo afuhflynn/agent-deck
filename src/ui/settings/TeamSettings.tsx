@@ -6,6 +6,7 @@ import { agentPalette } from "../../theme/tokens";
 import { Field, Portrait, SectionTitle } from "../kit";
 import { CommitInput } from "./controls";
 import { RemoveAgentDialog } from "./RemoveAgentDialog";
+import { OpencodeModelSelect } from "./OpencodeModelSelect";
 
 export function CliSelect({ value, onChange }: { value: AgentCli; onChange: (v: AgentCli) => void }) {
   return (
@@ -39,8 +40,49 @@ export function TeamSettings() {
         </div>
       </section>
       <AddAgent />
+      {team.some((a) => a.cli === "opencode") && <OpencodeSubagentsSettings />}
       {removing && <RemoveAgentDialog agent={removing} onClose={() => setRemoving(null)} />}
     </div>
+  );
+}
+
+function OpencodeSubagentsSettings() {
+  const workflow = useOffice((s) => s.snap?.config.workflow);
+  const models = useOffice((s) => s.snap?.opencodeModels) ?? [];
+  const current = workflow?.opencodeSubagentModel ?? "";
+
+  const resolved =
+    models.find((m) => m.id === "meta/muse-spark-1.3-contributor")?.id ||
+    models.find((m) => m.id === "opencode/nemotron-3.5-super-vl-free")?.id ||
+    models.find((m) => m.id === "opencode/deepseek-v4.1-flash-free")?.id ||
+    models.find((m) => m.isFree)?.id ||
+    "meta/muse-spark-1.3-contributor";
+
+  return (
+    <section className="border-[3px] border-ink bg-white p-3">
+      <div className="flex items-center justify-between mb-2">
+        <SectionTitle>OpenCode Sub-agents · Cost Optimization</SectionTitle>
+        <span className="border-2 border-ink bg-cream-2 px-2 py-0.5 text-[11px] font-bold text-ink">
+          {current ? "Custom Model" : "Auto Free/Cheap Tier"}
+        </span>
+      </div>
+      <p className="mb-3 text-[14px] text-muted">
+        OpenCode agents spawn auxiliary sub-agents for exploration, session summary compression, and token compaction.
+        JSM HQ automatically directs these sub-tasks to free or contributor models so your main reasoning budget isn&apos;t consumed.
+      </p>
+      <div className="grid grid-cols-[1fr_auto] items-end gap-3 max-w-[550px]">
+        <Field
+          label="Sub-agent Model Strategy"
+          hint={current ? `Using custom sub-agent model: ${current}` : `Auto-resolved: ${resolved} (Priority: muse-spark-1.3-contributor → nemotron-3.5-super-vl-free → deepseek-v4.1-flash-free)`}
+        >
+          <OpencodeModelSelect
+            value={current}
+            placeholder={`Auto: ${resolved}`}
+            onChange={(val) => officeActions.updateWorkflow({ opencodeSubagentModel: val || null })}
+          />
+        </Field>
+      </div>
+    </section>
   );
 }
 
@@ -104,13 +146,21 @@ function AgentRow({ agent, expanded, onToggle, onRemove }: { agent: AgentConfig;
             </div>
           </Field>
           <Field label="Start with model" hint="Optional. Leave empty to use the CLI's default — you can always switch with /model in the terminal. Set it to keep a choice across restarts (e.g. Opus for the lead).">
-            <CommitInput
-              className="field"
-              value={agent.model}
-              placeholder={`${CLI_LABEL[agent.cli]} default`}
-              list={agent.cli === "codex" ? "codex-models" : "claude-models"}
-              onCommit={(v) => set({ model: v.trim() })}
-            />
+            {agent.cli === "opencode" ? (
+              <OpencodeModelSelect
+                value={agent.model}
+                isLead={agent.isLead}
+                onChange={(m) => set({ model: m.trim() })}
+              />
+            ) : (
+              <CommitInput
+                className="field"
+                value={agent.model}
+                placeholder={`${CLI_LABEL[agent.cli]} default`}
+                list={agent.cli === "codex" ? "codex-models" : "claude-models"}
+                onCommit={(v) => set({ model: v.trim() })}
+              />
+            )}
           </Field>
           <Field label="Skills" hint="Comma separated. Copied into the agent's .claude/skills.">
             <CommitInput
@@ -146,6 +196,7 @@ function AddAgent() {
   const [cli, setCli] = useState<AgentCli>("claude");
   const [mode, setMode] = useState<AgentMode>("sandbox");
   const team = useOffice((s) => s.snap?.config.team) ?? [];
+  const opencodeModels = useOffice((s) => s.snap?.opencodeModels) ?? [];
   const suggested = nextAgentName(team.map((a) => a.name));
   const add = () => {
     officeActions.addAgent({ name: name.trim() || suggested, role, cli, mode });
@@ -185,6 +236,19 @@ function AddAgent() {
       </p>
       <datalist id="codex-models">
         <option value="gpt-5.6-sol" />
+      </datalist>
+      <datalist id="opencode-models">
+        {opencodeModels.length > 0 ? (
+          opencodeModels.map((m) => <option key={m.id} value={m.id} />)
+        ) : (
+          <>
+            <option value="meta/muse-spark-1.3" />
+            <option value="meta/muse-spark-1.3-contributor" />
+            <option value="opencode/nemotron-3.5-super-vl-free" />
+            <option value="opencode/deepseek-v4.1-flash-free" />
+            <option value="google/gemini-2.5-flash" />
+          </>
+        )}
       </datalist>
       <datalist id="claude-models">
         <option value="opus" />

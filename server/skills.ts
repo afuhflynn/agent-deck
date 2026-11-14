@@ -13,7 +13,7 @@ import { run } from "./lib/exec";
 import { log } from "./lib/log";
 import { projectHome } from "./paths";
 
-const AGENT_DIRS = [".claude/skills", ".agents/skills"]; // Claude Code, Codex
+const AGENT_DIRS = [".claude/skills", ".agents/skills", ".opencode/skills"]; // Claude Code, Codex, OpenCode
 
 const cacheDir = (slug: string) => join(projectHome(slug), "skills-cache");
 const key = (specs: SkillSpec[]) => JSON.stringify(specs);
@@ -32,7 +32,7 @@ export function ensureSkillCache(slug: string, specs: SkillSpec[]): Promise<void
     await run("git", ["init", "-q"], { cwd: dir }); // the CLI installs into the current project
     const failed: string[] = [];
     for (const spec of specs) {
-      const args = ["-y", "skills", "add", spec.source, "--skill", ...spec.skills, "-a", "claude-code", "codex", "-y", "--copy"];
+      const args = ["-y", "skills", "add", spec.source, "--skill", ...spec.skills, "-a", "claude-code", "codex", "opencode", "-y", "--copy"];
       // npx is a .cmd shim on Windows, which only runs through cmd.exe.
       const [cmd, cmdArgs] = process.platform === "win32" ? ["cmd.exe", ["/d", "/s", "/c", "npx", ...args]] : ["npx", args];
       const r = await run(cmd, cmdArgs, {

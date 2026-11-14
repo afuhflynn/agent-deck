@@ -10,6 +10,8 @@ import type { AgentConfig, HqConfig } from "../src/data/types";
 
 /** Team MCP config, passed with `claude --mcp-config` (so the project's own .mcp.json is untouched). */
 export const MCP_CONFIG = ".claude/hq-mcp.json";
+export const OPENCODE_CONFIG = ".opencode/config.json";
+export const OPENCODE_PLUGIN = ".opencode/plugins/hq.mjs";
 /** Local mode on Windows: hooks run this with node (no sh or curl there). */
 export const HOOK_SCRIPT = ".jsmhq-hook.mjs";
 /** HQ's generated role file. Its own name, so a ROLE.md the project has is never overwritten. */
@@ -222,6 +224,102 @@ export function writeClaudeFiles(dir: string, agent: AgentConfig, cfg: HqConfig,
   writeMcpConfig(dir, agent, cfg.project.hqPort, token);
   if (hookScriptFor(agent, dir)) writeHookScript(dir);
   excludeFromGit(dir, HQ_FILES);
+}
+
+/** OpenCode config (ambient instructions, remote Team MCP, and local plugin). */
+export function opencodeConfig(agent: AgentConfig, cfg: HqConfig, token: string, subagentModel?: string): string {
+  const url = hqUrl(agent, cfg.project.hqPort);
+  const config: Record<string, unknown> = {
+    $schema: "https://opencode.ai/config.json",
+    instructions: [ROLE_FILE],
+    mcp: {
+      servers: {
+        hq: {
+          type: "remote",
+          url: `${url}/mcp`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-HQ-Agent": agent.id,
+          },
+          enabled: true,
+          oauth: false,
+        },
+      },
+    },
+    plugins: ["./" + OPENCODE_PLUGIN],
+    permissions: [
+      { action: "mcp:hq:*", resource: "*", effect: "allow" },
+    ],
+  };
+
+  if (subagentModel && subagentModel.trim()) {
+    config.agents = {
+      explore: { model: subagentModel.trim() },
+      summary: { model: subagentModel.trim() },
+      compaction: { model: subagentModel.trim() },
+    };
+    config.small_model = subagentModel.trim();
+  }
+
+  return JSON.stringify(config, null, 2) + "\n";
+}
+
+/** Standalone zero-dependency plugin that posts OpenCode events to HQ hooks. */
+export function opencodePluginSource(url: string, token: string, agentId: string): string {
+  return `// Written by JSM HQ (git-excluded). Sends OpenCode events to HQ.
+const HQ_URL = ${JSON.stringify(url)};
+const HQ_TOKEN = ${JSON.stringify(token)};
+const HQ_AGENT_ID = ${JSON.stringify(agentId)};
+
+const notify = async (event, body = {}) => {
+  try {
+    await fetch(\`\${HQ_URL}/hook/\${HQ_AGENT_ID}/\${event}\`, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + HQ_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch {}
+};
+
+export default async function HqPlugin() {
+  return {
+    event: async ({ event }) => {
+      if (!event || !event.type) return;
+      if (event.type === "session.created") await notify("SessionStart");
+      else if (event.type === "session.idle") await notify("Stop");
+      else if (event.type === "session.deleted") await notify("SessionEnd");
+      else if (event.type === "message.updated") await notify("UserPromptSubmit");
+      else if (event.type === "permission.asked") await notify("PermissionRequest", { tool_name: event.properties?.action });
+    },
+    "tool.execute.before": async (input) => {
+      await notify("PreToolUse", { tool_name: input?.tool });
+    },
+    "tool.execute.after": async (input) => {
+      await notify("PostToolUse", { tool_name: input?.tool });
+    },
+    "permission.ask": async (perm, output) => {
+      if (perm?.action?.startsWith("mcp:hq") || perm?.action?.startsWith("hq")) {
+        if (output) output.status = "allow";
+      } else {
+        await notify("PermissionRequest", { tool_name: perm?.action });
+      }
+    },
+  };
+}
+`;
+}
+
+/** OpenCode's files: role, config, and local plugin. */
+export function writeOpencodeFiles(dir: string, agent: AgentConfig, cfg: HqConfig, token: string, extras: RoleExtras = {}, subagentModel?: string) {
+  const url = hqUrl(agent, cfg.project.hqPort);
+  agentWrite(dir, ROLE_FILE, roleMd(agent, cfg, extras));
+  agentWrite(dir, OPENCODE_CONFIG, opencodeConfig(agent, cfg, token, subagentModel), { mode: 0o600 });
+  agentWrite(dir, OPENCODE_PLUGIN, opencodePluginSource(url, token, agent.id));
+  excludeFromGit(dir, [ROLE_FILE, ".opencode"]);
 }
 
 /** Removes lines HQ added to .git/info/exclude. */

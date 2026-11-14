@@ -1,6 +1,6 @@
 // Browser commands → server actions. Names match OfficeDataSource methods.
 
-import { SERVICE_KEYS, type AgentCli, type AgentConfig, type AgentPatch, type ReviewTool, type WelcomeInput, type NewMcpServer, type Board, type NewAgentInput, type ProjectConfig, type RemoveAgentOptions, type SandboxSettings, type SetupCheckId, type WorkflowPatch } from "../src/data/types";
+import { SERVICE_KEYS, type AgentCli, type AgentConfig, type AgentPatch, type ReviewTool, type WelcomeInput, type NewMcpServer, type Board, type NewAgentInput, type ProjectConfig, type RemoveAgentOptions, type SandboxSettings, type SetupCheckId, type WorkflowPatch, OPENCODE_LEAD_DEFAULT_MODEL } from "../src/data/types";
 import { LEAD_NAME, OFFICE_NAME_MAX } from "../src/data/names";
 import { STACK_CATEGORIES, stackSkills, stackTool, type StackChoice, type StackConfig } from "../src/data/stack";
 import { resolveAccess } from "./access";
@@ -15,6 +15,7 @@ import type { SbxMcp } from "./sbxMcp";
 import type { Sessions } from "./sessions";
 import { newAgent } from "./store";
 import { mergeByNotice } from "./githubSync";
+import { getAvailableOpencodeModels } from "./opencodeModels";
 
 /** A stack from the browser, checked against the catalog. Null when nothing is chosen. */
 function cleanStack(raw: unknown): StackConfig | null {
@@ -73,8 +74,14 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
     recheckSetup: async () => {
       await sessions.recheckSetup();
       await sbx.refresh();
+      const models = await getAvailableOpencodeModels();
+      hub.setOpencodeModels(models);
     },
     runSetupFix: (id) => sessions.runFix(str(id, 40) as SetupCheckId),
+    refreshOpencodeModels: async () => {
+      const models = await getAvailableOpencodeModels(true);
+      hub.setOpencodeModels(models);
+    },
 
     // You → agent: same delivery path as the lead's assign_task / send_message.
     assignTask: (taskId, agentId) => planner.assign(str(taskId, 40), str(agentId, 80), "you"),
@@ -88,8 +95,11 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
       const used = new Set(team().map((a) => a.color));
       const color = agentPalette.find((c) => !used.has(c)) ?? agentPalette[team().length % agentPalette.length];
       const agent = newAgent(id, name, str(input.role, 40).trim() || "Developer", color, false);
-      agent.cli = input.cli === "codex" ? "codex" : "claude";
+      agent.cli = input.cli === "codex" ? "codex" : input.cli === "opencode" ? "opencode" : "claude";
       agent.model = str(input.model, 60).trim();
+      if (agent.isLead && agent.cli === "opencode" && !agent.model) {
+        agent.model = OPENCODE_LEAD_DEFAULT_MODEL;
+      }
       agent.mode = input.mode === "local" ? "local" : "sandbox";
       const lead = team().find((a) => a.isLead);
       if (lead) agent.sandbox = structuredClone(lead.sandbox);
@@ -99,7 +109,7 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
       hub.configChanged();
       hub.emit({ type: "agent.updated", agent: structuredClone(status) });
       hub.activity("config", null, `Added ${agent.name} (${agent.role}). Press Start to launch their session.`);
-      if (agent.cli === "codex") void sessions.recheckSetup();
+      if (agent.cli === "codex" || agent.cli === "opencode") void sessions.recheckSetup();
     },
 
     updateAgent: (id, patch) => {
@@ -109,15 +119,20 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
       const before = `${agent.cli}/${agent.mode}`;
       for (const k of ["name", "role", "model", "color", "roleMd"] as const) if (typeof p[k] === "string") agent[k] = str(p[k], 8000);
       if (p.mode === "sandbox" || p.mode === "local") agent.mode = p.mode;
-      if ((p.cli === "claude" || p.cli === "codex") && p.cli !== agent.cli) {
+      if ((p.cli === "claude" || p.cli === "codex" || p.cli === "opencode") && p.cli !== agent.cli) {
         agent.cli = p.cli;
         // Model names don't carry over between CLIs.
-        if (typeof p.model !== "string") agent.model = "";
+        if (typeof p.model !== "string") {
+          agent.model = agent.isLead && agent.cli === "opencode" ? OPENCODE_LEAD_DEFAULT_MODEL : "";
+        }
+      }
+      if (agent.isLead && agent.cli === "opencode" && !agent.model) {
+        agent.model = OPENCODE_LEAD_DEFAULT_MODEL;
       }
       if (Array.isArray(p.skills)) agent.skills = p.skills.map((s) => str(s, 60)).filter(Boolean);
       if (p.workspacePath !== undefined) agent.workspacePath = p.workspacePath ? str(p.workspacePath, 500).trim() || null : null;
       hub.configChanged();
-      // Codex agents add their own setup checks.
+      // Codex and OpenCode agents add their own setup checks.
       if (`${agent.cli}/${agent.mode}` !== before) void sessions.recheckSetup();
     },
 
@@ -244,7 +259,7 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
     completeWelcome: async (raw) => {
       if (!hub.snap.welcome) return;
       const input = (raw ?? {}) as Partial<WelcomeInput>;
-      const cli = (c: unknown): AgentCli => (c === "codex" ? "codex" : "claude");
+      const cli = (c: unknown): AgentCli => (c === "codex" ? "codex" : c === "opencode" ? "opencode" : "claude");
       const used = new Set<string>();
       const make = (name: string, role: string, agentCli: AgentCli, isLead: boolean): AgentConfig => {
         const clean = str(name, 40).trim() || (isLead ? "Lead" : "Agent");
@@ -256,6 +271,7 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
         return agent;
       };
       const lead = make(input.lead?.name ?? LEAD_NAME, "Lead", cli(input.lead?.cli), true);
+      if (lead.cli === "opencode" && !lead.model) lead.model = OPENCODE_LEAD_DEFAULT_MODEL;
       const workers = (Array.isArray(input.workers) ? input.workers : []).slice(0, 11).map((w) => make(w?.name ?? "", w?.role ?? "", cli(w?.cli), false));
       if (!workers.length) return hub.activity("config", null, "Add at least one worker to the team.");
       const cfg = hub.snap.config;
@@ -287,6 +303,9 @@ export function makeCommands(hub: Hub, sessions: Sessions, planner: Planner, inb
       Object.assign(wf.review, p.review ?? {});
       if (p.merge?.by === "human" || p.merge?.by === "lead") wf.merge.by = p.merge.by;
       Object.assign(wf.deploy, p.deploy ?? {});
+      if (p.opencodeSubagentModel !== undefined) {
+        wf.opencodeSubagentModel = typeof p.opencodeSubagentModel === "string" ? str(p.opencodeSubagentModel, 120).trim() || null : null;
+      }
       hub.configChanged();
       // The lead was told the old rule; tell it the new one now, so no restart is needed.
       const lead = hub.snap.config.team.find((a) => a.isLead);

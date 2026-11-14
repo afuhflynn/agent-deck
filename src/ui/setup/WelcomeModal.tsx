@@ -67,6 +67,11 @@ export function WelcomeModal() {
                 <CliSelect value={lead.cli} onChange={(cli) => setLead({ ...lead, cli })} />
               </Field>
             </div>
+            {lead.cli === "opencode" && (
+              <p className="mt-1 text-[12px] text-muted">
+                OpenCode Lead will use <b>meta/muse-spark-1.3</b>. Sub-agents will run on free/contributor models. You can change this in Settings anytime.
+              </p>
+            )}
           </section>
 
           <section>
